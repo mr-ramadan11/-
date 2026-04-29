@@ -12,6 +12,9 @@ const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 const clearBtn = document.getElementById("clearBtn");
 const saveBtn = document.getElementById("saveBtn");
+const toggleGuideBtn = document.getElementById("toggleGuideBtn");
+const toggleLinesBtn = document.getElementById("toggleLinesBtn");
+
 const colorPicker = document.getElementById("colorPicker");
 const sizeRange = document.getElementById("sizeRange");
 const smoothRange = document.getElementById("smoothRange");
@@ -19,8 +22,6 @@ const beautifyModeBtn = document.getElementById("beautifyModeBtn");
 const beautifyRange = document.getElementById("beautifyRange");
 
 const letterSelect = document.getElementById("letterSelect");
-const toggleGuideBtn = document.getElementById("toggleGuideBtn");
-const toggleLinesBtn = document.getElementById("toggleLinesBtn");
 const guideSizeRange = document.getElementById("guideSizeRange");
 const letterForms = document.getElementById("letterForms");
 const letterHint = document.getElementById("letterHint");
@@ -31,59 +32,61 @@ const addTextBtn = document.getElementById("addTextBtn");
 const harakatRow = document.getElementById("harakatRow");
 
 const HARAKAT = ["َ", "ِ", "ُ", "ّ", "ْ", "ً", "ٍ", "ٌ", "ٰ", "ـ"];
+const GRID_STEP = 40;
+const GRID_OFFSET = 28;
 
 const LETTER_DATA = {
-  "ا": { forms: "ا  ـا  ـا  ا", hint: "مثال: أسد", words: ["أرنب", "أمل", "أمانة"] },
-  "ب": { forms: "ب  بـ  ـبـ  ـب", hint: "مثال: باب", words: ["بيت", "بحر", "بستان"] },
-  "ت": { forms: "ت  تـ  ـتـ  ـت", hint: "مثال: تمر", words: ["تفاح", "تلميذ", "تعاون"] },
-  "ث": { forms: "ث  ثـ  ـثـ  ـث", hint: "مثال: ثوب", words: ["ثمر", "ثعلب", "ثقافة"] },
-  "ج": { forms: "ج  جـ  ـجـ  ـج", hint: "مثال: جمل", words: ["جسر", "جميل", "جامعة"] },
-  "ح": { forms: "ح  حـ  ـحـ  ـح", hint: "مثال: حبر", words: ["حليب", "حكمة", "حديقة"] },
-  "خ": { forms: "خ  خـ  ـخـ  ـخ", hint: "مثال: خبز", words: ["خيمة", "خريطة", "خُلق"] },
-  "د": { forms: "د  ـد  ـد  د", hint: "مثال: دفتر", words: ["درس", "دقيقة", "دكان"] },
-  "ذ": { forms: "ذ  ـذ  ـذ  ذ", hint: "مثال: ذهب", words: ["ذراع", "ذكاء", "ذوق"] },
-  "ر": { forms: "ر  ـر  ـر  ر", hint: "مثال: ريشة", words: ["ربيع", "رسالة", "رياضة"] },
-  "ز": { forms: "ز  ـز  ـز  ز", hint: "مثال: زهرة", words: ["زيت", "زميل", "زيارة"] },
-  "س": { forms: "س  سـ  ـسـ  ـس", hint: "مثال: سمك", words: ["سماء", "سلام", "سفينة"] },
-  "ش": { forms: "ش  شـ  ـشـ  ـش", hint: "مثال: شمس", words: ["شجرة", "شجاعة", "شاهد"] },
-  "ص": { forms: "ص  صـ  ـصـ  ـص", hint: "مثال: صبر", words: ["صديق", "صورة", "صندوق"] },
-  "ض": { forms: "ض  ضـ  ـضـ  ـض", hint: "مثال: ضوء", words: ["ضابط", "ضمير", "ضيافة"] },
-  "ط": { forms: "ط  طـ  ـطـ  ـط", hint: "مثال: طريق", words: ["طالب", "طعام", "طائرة"] },
-  "ظ": { forms: "ظ  ظـ  ـظـ  ـظ", hint: "مثال: ظرف", words: ["ظلال", "ظريف", "وظيفة"] },
-  "ع": { forms: "ع  عـ  ـعـ  ـع", hint: "مثال: علم", words: ["عقل", "عصفور", "عائلة"] },
-  "غ": { forms: "غ  غـ  ـغـ  ـغ", hint: "مثال: غيم", words: ["غزال", "غابة", "غرفة"] },
-  "ف": { forms: "ف  فـ  ـفـ  ـف", hint: "مثال: فم", words: ["فراشة", "فكرة", "فصل"] },
-  "ق": { forms: "ق  قـ  ـقـ  ـق", hint: "مثال: قلم", words: ["قمر", "قصة", "قيمة"] },
-  "ك": { forms: "ك  كـ  ـكـ  ـك", hint: "مثال: كتاب", words: ["كرة", "كوكب", "كرم"] },
-  "ل": { forms: "ل  لـ  ـلـ  ـل", hint: "مثال: لغة", words: ["لؤلؤ", "لعب", "لبن"] },
-  "م": { forms: "م  مـ  ـمـ  ـم", hint: "مثال: مدرسة", words: ["ماء", "مفتاح", "محبة"] },
-  "ن": { forms: "ن  نـ  ـنـ  ـن", hint: "مثال: نور", words: ["نخلة", "نهر", "نجاح"] },
-  "ه": { forms: "ه  هـ  ـهـ  ـه", hint: "مثال: هدية", words: ["هلال", "هواء", "هجرة"] },
-  "و": { forms: "و  ـو  ـو  و", hint: "مثال: ورد", words: ["وطن", "وسام", "وقت"] },
-  "ي": { forms: "ي  يـ  ـيـ  ـي", hint: "مثال: يد", words: ["ياسمين", "يقين", "يوم"] }
+  "ا": { forms: "ا  ـا  ـا  ا", hint: "مثال: أسد", words: ["أمل", "أسد", "أمان"] },
+  "ب": { forms: "ب  بـ  ـبـ  ـب", hint: "مثال: باب", words: ["باب", "بيت", "بحر"] },
+  "ت": { forms: "ت  تـ  ـتـ  ـت", hint: "مثال: تفاح", words: ["تمر", "تفاح", "تعاون"] },
+  "ث": { forms: "ث  ثـ  ـثـ  ـث", hint: "مثال: ثمر", words: ["ثمر", "ثقة", "ثوب"] },
+  "ج": { forms: "ج  جـ  ـجـ  ـج", hint: "مثال: جمل", words: ["جمل", "جميل", "جامعة"] },
+  "ح": { forms: "ح  حـ  ـحـ  ـح", hint: "مثال: حرف", words: ["حلم", "حب", "حديقة"] },
+  "خ": { forms: "خ  خـ  ـخـ  ـخ", hint: "مثال: خبز", words: ["خريطة", "خيمة", "خلق"] },
+  "د": { forms: "د  ـد  ـد  د", hint: "مثال: درس", words: ["درس", "دفتر", "دقيق"] },
+  "ذ": { forms: "ذ  ـذ  ـذ  ذ", hint: "مثال: ذهب", words: ["ذهب", "ذراع", "ذكي"] },
+  "ر": { forms: "ر  ـر  ـر  ر", hint: "مثال: ريشة", words: ["رسم", "رائع", "ربيع"] },
+  "ز": { forms: "ز  ـز  ـز  ز", hint: "مثال: زهرة", words: ["زيت", "زهر", "زيارة"] },
+  "س": { forms: "س  سـ  ـسـ  ـس", hint: "مثال: سمك", words: ["سماء", "سلم", "سفينة"] },
+  "ش": { forms: "ش  شـ  ـشـ  ـش", hint: "مثال: شمس", words: ["شمس", "شجرة", "شرح"] },
+  "ص": { forms: "ص  صـ  ـصـ  ـص", hint: "مثال: صبر", words: ["صبر", "صوت", "صورة"] },
+  "ض": { forms: "ض  ضـ  ـضـ  ـض", hint: "مثال: ضوء", words: ["ضوء", "ضمير", "ضبط"] },
+  "ط": { forms: "ط  طـ  ـطـ  ـط", hint: "مثال: طريق", words: ["طريق", "طالب", "طائر"] },
+  "ظ": { forms: "ظ  ظـ  ـظـ  ـظ", hint: "مثال: ظرف", words: ["ظرف", "ظلال", "وظيفة"] },
+  "ع": { forms: "ع  عـ  ـعـ  ـع", hint: "مثال: علم", words: ["علم", "عين", "عصفور"] },
+  "غ": { forms: "غ  غـ  ـغـ  ـغ", hint: "مثال: غيم", words: ["غيم", "غابة", "غزال"] },
+  "ف": { forms: "ف  فـ  ـفـ  ـف", hint: "مثال: فم", words: ["فم", "فكرة", "فصل"] },
+  "ق": { forms: "ق  قـ  ـقـ  ـق", hint: "مثال: قلم", words: ["قلم", "قمر", "قصة"] },
+  "ك": { forms: "ك  كـ  ـكـ  ـك", hint: "مثال: كتاب", words: ["كتاب", "كرة", "كريم"] },
+  "ل": { forms: "ل  لـ  ـلـ  ـل", hint: "مثال: لغة", words: ["لغة", "لعب", "لبن"] },
+  "م": { forms: "م  مـ  ـمـ  ـم", hint: "مثال: مدرسة", words: ["مدرسة", "ماء", "مفتاح"] },
+  "ن": { forms: "ن  نـ  ـنـ  ـن", hint: "مثال: نور", words: ["نور", "نهر", "نجاح"] },
+  "ه": { forms: "ه  هـ  ـهـ  ـه", hint: "مثال: هدية", words: ["هدية", "هلال", "هواء"] },
+  "و": { forms: "و  ـو  ـو  و", hint: "مثال: ورد", words: ["ورد", "وطن", "وقت"] },
+  "ي": { forms: "ي  يـ  ـيـ  ـي", hint: "مثال: يد", words: ["يد", "يوم", "يقين"] }
 };
 
 const state = {
   tool: "pen",
-  color: "#1d4ed8",
-  size: 9,
-  smoothing: 0.72,
+  color: "#111111",
+  size: 8,
+  smoothing: 0.68,
   beautifyEnabled: true,
-  beautifyStrength: 0.85,
-  guideSize: 280,
-  guideVisible: true,
+  beautifyStrength: 0.88,
   linesVisible: true,
+  guideVisible: false,
+  guideSize: 260,
   selectedLetter: "ا",
-  panelOpen: window.innerWidth > 1120,
+  panelOpen: false,
+  pixelRatio: 1,
+  canvasWidth: 1,
+  canvasHeight: 1,
   actions: [],
   redoStack: [],
   currentStroke: null,
   isDrawing: false,
   pointerId: null,
-  pixelRatio: 1,
-  canvasWidth: 1,
-  canvasHeight: 1,
-  nextTextY: 105
+  nextTextY: 84
 };
 
 function clamp(value, min, max) {
@@ -98,22 +101,15 @@ function midpoint(a, b) {
   return { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
 }
 
-function normalizeAngle(radians) {
-  let output = radians;
-  while (output > Math.PI) {
-    output -= Math.PI * 2;
+function normalizeAngle(rad) {
+  let out = rad;
+  while (out > Math.PI) {
+    out -= 2 * Math.PI;
   }
-  while (output < -Math.PI) {
-    output += Math.PI * 2;
+  while (out < -Math.PI) {
+    out += 2 * Math.PI;
   }
-  return output;
-}
-
-function getWritingGuides() {
-  const upper = state.canvasHeight * 0.44;
-  const baseline = state.canvasHeight * 0.64;
-  const descender = state.canvasHeight * 0.8;
-  return { upper, baseline, descender };
+  return out;
 }
 
 function getPoint(event) {
@@ -130,7 +126,7 @@ function stabilizePoint(rawPoint, previousPoint, smoothStrength) {
     return { ...rawPoint };
   }
 
-  const alpha = 0.58 - smoothStrength * 0.38;
+  const alpha = 0.56 - smoothStrength * 0.36;
   return {
     x: previousPoint.x + (rawPoint.x - previousPoint.x) * alpha,
     y: previousPoint.y + (rawPoint.y - previousPoint.y) * alpha,
@@ -139,17 +135,63 @@ function stabilizePoint(rawPoint, previousPoint, smoothStrength) {
 }
 
 function computeWidth(point, previousPoint, baseSize, smoothStrength, isEraser) {
-  const coreSize = isEraser ? baseSize * 1.65 : baseSize;
+  const effectiveSize = isEraser ? baseSize * 1.7 : baseSize;
   if (!previousPoint) {
-    return coreSize;
+    return effectiveSize;
   }
 
   const dt = Math.max(point.t - previousPoint.t, 7);
   const distance = Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
   const speed = distance / dt;
-  const speedFactor = clamp(1.32 - speed * 2.9, 0.45, 1.55);
-  const target = coreSize * speedFactor;
-  return previousPoint.w + (target - previousPoint.w) * (0.22 + smoothStrength * 0.28);
+  const speedFactor = clamp(1.32 - speed * 2.9, 0.44, 1.56);
+  const target = effectiveSize * speedFactor;
+  return previousPoint.w + (target - previousPoint.w) * (0.24 + smoothStrength * 0.28);
+}
+
+function strokeLength(points) {
+  if (points.length <= 1) {
+    return 0;
+  }
+
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return total;
+}
+
+function getBounds(points) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y);
+    maxY = Math.max(maxY, point.y);
+  }
+
+  return {
+    minX,
+    maxX,
+    minY,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) * 0.5,
+    centerY: (minY + maxY) * 0.5
+  };
+}
+
+function isDotLikeStroke(points) {
+  if (points.length <= 1) {
+    return true;
+  }
+
+  const bounds = getBounds(points);
+  return strokeLength(points) < state.size * 2.9 && Math.max(bounds.width, bounds.height) < state.size * 2.6;
 }
 
 function simplifyByDistance(points, threshold) {
@@ -157,20 +199,19 @@ function simplifyByDistance(points, threshold) {
     return points.slice();
   }
 
-  const simplified = [points[0]];
+  const output = [points[0]];
   let last = points[0];
 
   for (let i = 1; i < points.length - 1; i += 1) {
     const point = points[i];
-    const distance = Math.hypot(point.x - last.x, point.y - last.y);
-    if (distance >= threshold) {
-      simplified.push(point);
+    if (Math.hypot(point.x - last.x, point.y - last.y) >= threshold) {
+      output.push(point);
       last = point;
     }
   }
 
-  simplified.push(points[points.length - 1]);
-  return simplified;
+  output.push(points[points.length - 1]);
+  return output;
 }
 
 function smoothPass(points, strength) {
@@ -179,6 +220,7 @@ function smoothPass(points, strength) {
   }
 
   const next = [points[0]];
+
   for (let i = 1; i < points.length - 1; i += 1) {
     const prev = points[i - 1];
     const current = points[i];
@@ -201,7 +243,7 @@ function resamplePoints(points, spacing) {
     return points.slice();
   }
 
-  const sampled = [points[0]];
+  const output = [points[0]];
   let accumulated = 0;
 
   for (let i = 1; i < points.length; i += 1) {
@@ -219,7 +261,7 @@ function resamplePoints(points, spacing) {
     let cursor = spacing - accumulated;
     while (cursor <= segment) {
       const t = cursor / segment;
-      sampled.push({
+      output.push({
         x: start.x + dx * t,
         y: start.y + dy * t,
         w: start.w + dw * t,
@@ -232,12 +274,12 @@ function resamplePoints(points, spacing) {
   }
 
   const lastOriginal = points[points.length - 1];
-  const lastSampled = sampled[sampled.length - 1];
-  if (Math.hypot(lastSampled.x - lastOriginal.x, lastSampled.y - lastOriginal.y) > 0.3) {
-    sampled.push(lastOriginal);
+  const lastSampled = output[output.length - 1];
+  if (Math.hypot(lastSampled.x - lastOriginal.x, lastSampled.y - lastOriginal.y) > 0.4) {
+    output.push(lastOriginal);
   }
 
-  return sampled;
+  return output;
 }
 
 function catmullRom(points, segmentsPerCurve) {
@@ -259,24 +301,9 @@ function catmullRom(points, segmentsPerCurve) {
       const t3 = t2 * t;
 
       output.push({
-        x: 0.5 * (
-          (2 * p1.x) +
-          (-p0.x + p2.x) * t +
-          (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-          (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
-        ),
-        y: 0.5 * (
-          (2 * p1.y) +
-          (-p0.y + p2.y) * t +
-          (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-          (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
-        ),
-        w: 0.5 * (
-          (2 * p1.w) +
-          (-p0.w + p2.w) * t +
-          (2 * p0.w - 5 * p1.w + 4 * p2.w - p3.w) * t2 +
-          (-p0.w + 3 * p1.w - 3 * p2.w + p3.w) * t3
-        ),
+        x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+        w: 0.5 * ((2 * p1.w) + (-p0.w + p2.w) * t + (2 * p0.w - 5 * p1.w + 4 * p2.w - p3.w) * t2 + (-p0.w + 3 * p1.w - 3 * p2.w + p3.w) * t3),
         t: p2.t
       });
     }
@@ -285,105 +312,84 @@ function catmullRom(points, segmentsPerCurve) {
   return output;
 }
 
-function coarseBeautify(points, strength) {
-  if (points.length < 3) {
-    return points.slice();
-  }
-
-  let result = simplifyByDistance(points, 0.45 + strength * 1.1);
-  result = resamplePoints(result, 1.25 + (1 - strength) * 1.35);
+function softBeautify(points, strength) {
+  let result = simplifyByDistance(points, 0.46 + strength * 1.12);
+  result = resamplePoints(result, 1.3 + (1 - strength) * 1.4);
 
   const passes = 1 + Math.round(strength * 2);
   for (let i = 0; i < passes; i += 1) {
-    result = smoothPass(result, 0.28 + strength * 0.2);
+    result = smoothPass(result, 0.25 + strength * 0.2);
   }
 
-  result = catmullRom(result, 3 + Math.round(strength * 3));
+  result = catmullRom(result, 3 + Math.round(strength * 2));
   return result;
 }
 
-function snapPointsToArabicGuides(points, strength) {
-  const { upper, baseline, descender } = getWritingGuides();
-  const snapZone = 14 + state.size * 1.7;
+function snapToWritingBands(points, strength) {
   const output = [];
 
-  for (let i = 0; i < points.length; i += 1) {
-    const p = points[i];
-    let y = p.y;
+  for (const point of points) {
+    const nearestBand = Math.round((point.y - GRID_OFFSET) / GRID_STEP) * GRID_STEP + GRID_OFFSET;
+    const distance = Math.abs(point.y - nearestBand);
+    const zone = GRID_STEP * 0.34;
 
-    const nearBaseline = Math.abs(y - baseline) <= snapZone;
-    const nearUpper = Math.abs(y - upper) <= snapZone * 0.85;
-    const nearDescender = Math.abs(y - descender) <= snapZone * 0.9;
-
-    if (nearBaseline) {
-      y = lerp(y, baseline, 0.16 + strength * 0.42);
+    let y = point.y;
+    if (distance <= zone) {
+      y = lerp(point.y, nearestBand, 0.1 + strength * 0.48);
     }
 
-    if (nearUpper) {
-      y = lerp(y, upper, 0.08 + strength * 0.26);
-    }
-
-    if (nearDescender) {
-      y = lerp(y, descender, 0.08 + strength * 0.24);
-    }
-
-    output.push({ ...p, y });
+    output.push({ ...point, y });
   }
 
   return output;
 }
 
-function snapStrokeAngles(points, strength) {
+function snapAngles(points, strength) {
   if (points.length < 3) {
     return points.slice();
   }
 
-  const allowedAngles = [0, 12, -12, 24, -24, 37, -37, 52, -52, 90, -90]
-    .map((deg) => (deg * Math.PI) / 180);
-
+  const anchors = [0, 10, -10, 20, -20, 34, -34, 48, -48, 90, -90].map((deg) => (deg * Math.PI) / 180);
   const output = [points[0]];
+
   for (let i = 1; i < points.length; i += 1) {
     const prev = output[output.length - 1];
-    const target = points[i];
-    const dx = target.x - prev.x;
-    const dy = target.y - prev.y;
-    const segment = Math.hypot(dx, dy);
+    const next = points[i];
+    const dx = next.x - prev.x;
+    const dy = next.y - prev.y;
+    const length = Math.hypot(dx, dy);
 
-    if (segment < 0.1) {
+    if (length < 0.16) {
       continue;
     }
 
     const rawAngle = Math.atan2(dy, dx);
-    let snappedAngle = rawAngle;
+    let snapped = rawAngle;
     let smallest = Infinity;
 
-    for (const angle of allowedAngles) {
-      const diff = Math.abs(normalizeAngle(rawAngle - angle));
+    for (const anchor of anchors) {
+      const diff = Math.abs(normalizeAngle(rawAngle - anchor));
       if (diff < smallest) {
         smallest = diff;
-        snappedAngle = angle;
+        snapped = anchor;
       }
     }
 
-    const blend = 0.12 + strength * 0.5;
-    const finalAngle = rawAngle + normalizeAngle(snappedAngle - rawAngle) * blend;
+    const blend = 0.1 + strength * 0.52;
+    const finalAngle = rawAngle + normalizeAngle(snapped - rawAngle) * blend;
 
     output.push({
-      ...target,
-      x: prev.x + Math.cos(finalAngle) * segment,
-      y: prev.y + Math.sin(finalAngle) * segment
+      ...next,
+      x: prev.x + Math.cos(finalAngle) * length,
+      y: prev.y + Math.sin(finalAngle) * length
     });
   }
 
-  if (output.length === 1) {
-    output.push(points[points.length - 1]);
-  }
-
-  return output;
+  return output.length > 1 ? output : points.slice();
 }
 
-function applyCalligraphyWidths(points, strength) {
-  if (points.length <= 1) {
+function applyCalligraphicWidth(points, strength) {
+  if (points.length < 2) {
     return points.slice();
   }
 
@@ -394,93 +400,44 @@ function applyCalligraphyWidths(points, strength) {
     const prev = points[Math.max(0, i - 1)];
     const next = points[Math.min(points.length - 1, i + 1)];
     const angle = Math.atan2(next.y - prev.y, next.x - prev.x);
-    const nibFactor = 0.7 + Math.abs(Math.sin(angle - nibAngle)) * (0.48 + strength * 0.24);
+    const nibFactor = 0.72 + Math.abs(Math.sin(angle - nibAngle)) * (0.42 + strength * 0.28);
     const targetWidth = clamp(points[i].w * nibFactor, 1.2, 74);
 
     output.push({
       ...points[i],
-      w: lerp(points[i].w, targetWidth, 0.35 + strength * 0.45)
+      w: lerp(points[i].w, targetWidth, 0.34 + strength * 0.46)
     });
   }
 
   return output;
 }
 
-function strokeLength(points) {
-  if (points.length <= 1) {
-    return 0;
-  }
-
-  let total = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-  }
-  return total;
-}
-
-function getBounds(points) {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-
-  for (const p of points) {
-    minX = Math.min(minX, p.x);
-    maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y);
-    maxY = Math.max(maxY, p.y);
-  }
-
-  return {
-    minX,
-    maxX,
-    minY,
-    maxY,
-    width: maxX - minX,
-    height: maxY - minY,
-    centerX: (minX + maxX) * 0.5,
-    centerY: (minY + maxY) * 0.5
-  };
-}
-
-function isDotLikeStroke(points) {
-  if (points.length <= 1) {
-    return true;
-  }
-
-  const length = strokeLength(points);
-  const bounds = getBounds(points);
-  const maxSpan = Math.max(bounds.width, bounds.height);
-
-  return length < state.size * 2.6 && maxSpan < state.size * 2.3;
-}
-
-function buildSmartArabicStroke(points, preview) {
+function enhanceArabicStroke(points, preview) {
   if (points.length < 2) {
     return points.slice();
   }
 
-  const smartStrength = state.beautifyStrength * (preview ? 0.76 : 1);
+  const power = state.beautifyStrength * (preview ? 0.72 : 1);
 
-  let output = coarseBeautify(points, 0.45 + state.smoothing * 0.55);
-  output = snapPointsToArabicGuides(output, smartStrength);
-  output = snapStrokeAngles(output, smartStrength);
+  let result = softBeautify(points, state.smoothing * 0.85 + 0.12);
+  result = snapToWritingBands(result, power);
+  result = snapAngles(result, power);
 
-  output = smoothPass(output, 0.21 + smartStrength * 0.2);
-  output = smoothPass(output, 0.12 + smartStrength * 0.12);
-  output = catmullRom(output, 4 + Math.round(smartStrength * 3));
-  output = applyCalligraphyWidths(output, smartStrength);
+  result = smoothPass(result, 0.2 + power * 0.16);
+  result = smoothPass(result, 0.12 + power * 0.12);
+  result = catmullRom(result, 4 + Math.round(power * 3));
+  result = applyCalligraphicWidth(result, power);
 
-  return output;
+  return result;
 }
 
-function finalizeStrokePath(rawPoints, tool, preview) {
+function finalizeStroke(rawPoints, tool, preview) {
   if (!rawPoints.length) {
     return [];
   }
 
   if (tool === "eraser") {
-    return coarseBeautify(rawPoints, state.smoothing * 0.8);
+    return softBeautify(rawPoints, state.smoothing * 0.8);
   }
 
   if (isDotLikeStroke(rawPoints)) {
@@ -488,16 +445,16 @@ function finalizeStrokePath(rawPoints, tool, preview) {
     return [{
       x: bounds.centerX,
       y: bounds.centerY,
-      w: state.size * (1 + state.beautifyStrength * 0.42),
+      w: state.size * (1 + state.beautifyStrength * 0.44),
       t: rawPoints[rawPoints.length - 1].t
     }];
   }
 
   if (!state.beautifyEnabled) {
-    return coarseBeautify(rawPoints, state.smoothing);
+    return softBeautify(rawPoints, state.smoothing);
   }
 
-  return buildSmartArabicStroke(rawPoints, preview);
+  return enhanceArabicStroke(rawPoints, preview);
 }
 
 function drawStroke(points, color, composite) {
@@ -556,41 +513,6 @@ function drawTextAction(action) {
   ctx.restore();
 }
 
-function drawWritingLines() {
-  const { upper, baseline, descender } = getWritingGuides();
-
-  ctx.save();
-  ctx.lineWidth = 1.3;
-
-  ctx.strokeStyle = "rgba(59, 130, 246, 0.26)";
-  ctx.beginPath();
-  ctx.moveTo(0, upper);
-  ctx.lineTo(state.canvasWidth, upper);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(5, 150, 105, 0.34)";
-  ctx.beginPath();
-  ctx.moveTo(0, baseline);
-  ctx.lineTo(state.canvasWidth, baseline);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(220, 38, 38, 0.24)";
-  ctx.beginPath();
-  ctx.moveTo(0, descender);
-  ctx.lineTo(state.canvasWidth, descender);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(15, 23, 42, 0.46)";
-  ctx.font = '12px "Cairo", sans-serif';
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText("سطر علوي", 10, upper - 9);
-  ctx.fillText("السطر الأساسي", 10, baseline - 9);
-  ctx.fillText("سطر النزول", 10, descender - 9);
-
-  ctx.restore();
-}
-
 function drawGuideLetter() {
   ctx.save();
   ctx.direction = "rtl";
@@ -599,14 +521,31 @@ function drawGuideLetter() {
   ctx.font = `700 ${state.guideSize}px "Aref Ruqaa Ink", serif`;
 
   ctx.globalAlpha = 0.1;
-  ctx.fillStyle = "#1e3a8a";
-  ctx.fillText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.5);
+  ctx.fillStyle = "#4f46e5";
+  ctx.fillText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.54);
 
-  ctx.globalAlpha = 0.22;
-  ctx.strokeStyle = "#1d4ed8";
+  ctx.globalAlpha = 0.2;
+  ctx.strokeStyle = "#4338ca";
   ctx.lineWidth = 1.8;
-  ctx.setLineDash([7, 6]);
-  ctx.strokeText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.5);
+  ctx.setLineDash([8, 8]);
+  ctx.strokeText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.54);
+
+  ctx.restore();
+}
+
+function drawNotebookLines() {
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  const total = Math.ceil((state.canvasHeight - GRID_OFFSET) / GRID_STEP);
+  for (let i = 0; i <= total; i += 1) {
+    const y = GRID_OFFSET + i * GRID_STEP;
+    ctx.strokeStyle = i % 5 === 0 ? "rgba(148, 163, 184, 0.28)" : "rgba(148, 163, 184, 0.2)";
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(state.canvasWidth, y);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -618,10 +557,6 @@ function redraw() {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, state.canvasWidth, state.canvasHeight);
   ctx.restore();
-
-  if (state.linesVisible) {
-    drawWritingLines();
-  }
 
   if (state.guideVisible) {
     drawGuideLetter();
@@ -642,6 +577,10 @@ function redraw() {
       state.currentStroke.tool === "eraser" ? "destination-out" : "source-over"
     );
   }
+
+  if (state.linesVisible) {
+    drawNotebookLines();
+  }
 }
 
 function resizeCanvas() {
@@ -661,6 +600,30 @@ function setTool(toolName) {
   state.tool = toolName;
   penBtn.classList.toggle("active", toolName === "pen");
   eraserBtn.classList.toggle("active", toolName === "eraser");
+}
+
+function updatePanelState() {
+  workspace.classList.toggle("panel-open", state.panelOpen);
+  togglePanelBtn.textContent = state.panelOpen ? "إخفاء لوحة الحروف" : "لوحة الحروف";
+}
+
+function updateGuideButton() {
+  toggleGuideBtn.classList.toggle("active", state.guideVisible);
+  toggleGuideBtn.textContent = state.guideVisible ? "ح✓" : "ح";
+}
+
+function updateLinesButton() {
+  toggleLinesBtn.classList.toggle("active", state.linesVisible);
+  toggleLinesBtn.textContent = state.linesVisible ? "☰" : "☷";
+}
+
+function updateBeautifyUI() {
+  beautifyModeBtn.classList.toggle("active", state.beautifyEnabled);
+  beautifyBadge.classList.toggle("off", !state.beautifyEnabled);
+
+  beautifyBadge.textContent = state.beautifyEnabled
+    ? `تحسين الخط: مفعل (${Math.round(state.beautifyStrength * 100)}%)`
+    : "تحسين الخط: متوقف";
 }
 
 function pushAction(action) {
@@ -691,7 +654,7 @@ function clearBoard() {
   state.actions = [];
   state.redoStack = [];
   state.currentStroke = null;
-  state.nextTextY = 105;
+  state.nextTextY = 84;
   redraw();
 }
 
@@ -700,7 +663,7 @@ function updateCurrentStroke(preview) {
     return;
   }
 
-  state.currentStroke.points = finalizeStrokePath(
+  state.currentStroke.points = finalizeStroke(
     state.currentStroke.rawPoints,
     state.currentStroke.tool,
     preview
@@ -714,19 +677,19 @@ function startStroke(event) {
 
   event.preventDefault();
   const point = getPoint(event);
-  const baseWidth = state.tool === "eraser" ? state.size * 1.65 : state.size;
+  const base = state.tool === "eraser" ? state.size * 1.7 : state.size;
 
   state.currentStroke = {
     type: "stroke",
     tool: state.tool,
-    color: state.tool === "eraser" ? "#111111" : state.color,
+    color: state.tool === "eraser" ? "#000000" : state.color,
     composite: state.tool === "eraser" ? "destination-out" : "source-over",
-    rawPoints: [{ ...point, w: baseWidth }],
-    points: [{ ...point, w: baseWidth }]
+    rawPoints: [{ ...point, w: base }],
+    points: [{ ...point, w: base }]
   };
 
-  state.pointerId = event.pointerId;
   state.isDrawing = true;
+  state.pointerId = event.pointerId;
   canvas.setPointerCapture(event.pointerId);
   redraw();
 }
@@ -736,14 +699,14 @@ function moveStroke(event) {
     return;
   }
 
-  const raw = getPoint(event);
+  const rawPoint = getPoint(event);
   const rawPoints = state.currentStroke.rawPoints;
   const lastPoint = rawPoints[rawPoints.length - 1];
 
-  const stabilized = stabilizePoint(raw, lastPoint, state.smoothing);
-  const width = computeWidth(stabilized, lastPoint, state.size, state.smoothing, state.tool === "eraser");
+  const stable = stabilizePoint(rawPoint, lastPoint, state.smoothing);
+  const width = computeWidth(stable, lastPoint, state.size, state.smoothing, state.tool === "eraser");
 
-  rawPoints.push({ ...stabilized, w: width });
+  rawPoints.push({ ...stable, w: width });
   updateCurrentStroke(true);
   redraw();
 }
@@ -763,12 +726,10 @@ function endStroke(event) {
     points: state.currentStroke.points
   };
 
-  state.actions.push(finalized);
-  state.redoStack = [];
+  pushAction(finalized);
   state.currentStroke = null;
   state.isDrawing = false;
   state.pointerId = null;
-  redraw();
 }
 
 function addTextToBoard(text) {
@@ -778,9 +739,9 @@ function addTextToBoard(text) {
   }
 
   const y = state.nextTextY;
-  state.nextTextY += 58;
-  if (state.nextTextY > state.canvasHeight - 70) {
-    state.nextTextY = 110;
+  state.nextTextY += 56;
+  if (state.nextTextY > state.canvasHeight - 84) {
+    state.nextTextY = 84;
   }
 
   pushAction({
@@ -788,59 +749,16 @@ function addTextToBoard(text) {
     text: trimmed,
     x: state.canvasWidth * 0.5,
     y,
-    size: clamp(42 + state.size * 1.4, 38, 82),
+    size: clamp(40 + state.size * 1.55, 38, 84),
     color: state.color
   });
 }
 
 function saveImage() {
   const link = document.createElement("a");
-  link.download = `smart-arabic-board-${Date.now()}.png`;
+  link.download = `arabic-smart-board-${Date.now()}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
-}
-
-function updatePanelState() {
-  workspace.classList.toggle("panel-collapsed", !state.panelOpen);
-  togglePanelBtn.textContent = state.panelOpen ? "إخفاء لوحة الشرح" : "إظهار لوحة الشرح";
-}
-
-function updateBeautifyUI() {
-  beautifyModeBtn.classList.toggle("active", state.beautifyEnabled);
-  beautifyBadge.classList.toggle("on", state.beautifyEnabled);
-  beautifyBadge.classList.toggle("off", !state.beautifyEnabled);
-  beautifyBadge.textContent = state.beautifyEnabled
-    ? `تحسين الخط: مفعل (${Math.round(state.beautifyStrength * 100)}%)`
-    : "تحسين الخط: متوقف";
-}
-
-function buildLetterOptions() {
-  letterSelect.innerHTML = "";
-  for (const letter of Object.keys(LETTER_DATA)) {
-    const option = document.createElement("option");
-    option.value = letter;
-    option.textContent = letter;
-    letterSelect.appendChild(option);
-  }
-  letterSelect.value = state.selectedLetter;
-}
-
-function updateLetterCard() {
-  const data = LETTER_DATA[state.selectedLetter];
-  letterForms.textContent = data.forms;
-  letterHint.textContent = data.hint;
-
-  wordButtons.innerHTML = "";
-  for (const word of data.words) {
-    const button = document.createElement("button");
-    button.className = "word-btn";
-    button.textContent = word;
-    button.addEventListener("click", () => {
-      arabicTextInput.value = word;
-      addTextToBoard(word);
-    });
-    wordButtons.appendChild(button);
-  }
 }
 
 function insertAtCursor(input, value) {
@@ -867,6 +785,37 @@ function buildHarakatButtons() {
   }
 }
 
+function buildLetterOptions() {
+  letterSelect.innerHTML = "";
+  for (const letter of Object.keys(LETTER_DATA)) {
+    const option = document.createElement("option");
+    option.value = letter;
+    option.textContent = letter;
+    letterSelect.appendChild(option);
+  }
+
+  letterSelect.value = state.selectedLetter;
+}
+
+function updateLetterCard() {
+  const data = LETTER_DATA[state.selectedLetter];
+  letterForms.textContent = data.forms;
+  letterHint.textContent = data.hint;
+
+  wordButtons.innerHTML = "";
+  for (const word of data.words) {
+    const button = document.createElement("button");
+    button.className = "word-btn";
+    button.type = "button";
+    button.textContent = word;
+    button.addEventListener("click", () => {
+      arabicTextInput.value = word;
+      addTextToBoard(word);
+    });
+    wordButtons.appendChild(button);
+  }
+}
+
 function bindEvents() {
   penBtn.addEventListener("click", () => setTool("pen"));
   eraserBtn.addEventListener("click", () => setTool("eraser"));
@@ -875,6 +824,23 @@ function bindEvents() {
   redoBtn.addEventListener("click", redo);
   clearBtn.addEventListener("click", clearBoard);
   saveBtn.addEventListener("click", saveImage);
+
+  toggleGuideBtn.addEventListener("click", () => {
+    state.guideVisible = !state.guideVisible;
+    updateGuideButton();
+    redraw();
+  });
+
+  toggleLinesBtn.addEventListener("click", () => {
+    state.linesVisible = !state.linesVisible;
+    updateLinesButton();
+    redraw();
+  });
+
+  togglePanelBtn.addEventListener("click", () => {
+    state.panelOpen = !state.panelOpen;
+    updatePanelState();
+  });
 
   colorPicker.addEventListener("input", (event) => {
     state.color = event.target.value;
@@ -898,26 +864,9 @@ function bindEvents() {
     updateBeautifyUI();
   });
 
-  togglePanelBtn.addEventListener("click", () => {
-    state.panelOpen = !state.panelOpen;
-    updatePanelState();
-  });
-
   letterSelect.addEventListener("change", (event) => {
     state.selectedLetter = event.target.value;
     updateLetterCard();
-    redraw();
-  });
-
-  toggleGuideBtn.addEventListener("click", () => {
-    state.guideVisible = !state.guideVisible;
-    toggleGuideBtn.textContent = state.guideVisible ? "إخفاء التتبع" : "إظهار التتبع";
-    redraw();
-  });
-
-  toggleLinesBtn.addEventListener("click", () => {
-    state.linesVisible = !state.linesVisible;
-    toggleLinesBtn.textContent = state.linesVisible ? "إخفاء سطور الكتابة" : "إظهار سطور الكتابة";
     redraw();
   });
 
@@ -947,25 +896,21 @@ function bindEvents() {
     }
   });
 
-  window.addEventListener("resize", () => {
-    if (window.innerWidth <= 1120 && state.panelOpen && !teacherPanel.matches(":hover")) {
-      state.panelOpen = false;
-      updatePanelState();
-    }
-    resizeCanvas();
-  });
+  window.addEventListener("resize", resizeCanvas);
 }
 
 function init() {
-  buildLetterOptions();
   buildHarakatButtons();
+  buildLetterOptions();
   updateLetterCard();
   bindEvents();
+
   setTool("pen");
   updatePanelState();
+  updateGuideButton();
+  updateLinesButton();
   updateBeautifyUI();
-  toggleGuideBtn.textContent = "إخفاء التتبع";
-  toggleLinesBtn.textContent = "إخفاء سطور الكتابة";
+
   resizeCanvas();
 }
 

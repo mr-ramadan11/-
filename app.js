@@ -1,6 +1,11 @@
 ﻿const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
+const workspace = document.getElementById("workspace");
+const teacherPanel = document.getElementById("teacherPanel");
+const togglePanelBtn = document.getElementById("togglePanelBtn");
+const beautifyBadge = document.getElementById("beautifyBadge");
+
 const penBtn = document.getElementById("penBtn");
 const eraserBtn = document.getElementById("eraserBtn");
 const undoBtn = document.getElementById("undoBtn");
@@ -10,16 +15,20 @@ const saveBtn = document.getElementById("saveBtn");
 const colorPicker = document.getElementById("colorPicker");
 const sizeRange = document.getElementById("sizeRange");
 const smoothRange = document.getElementById("smoothRange");
+const beautifyModeBtn = document.getElementById("beautifyModeBtn");
+const beautifyRange = document.getElementById("beautifyRange");
+
 const letterSelect = document.getElementById("letterSelect");
 const toggleGuideBtn = document.getElementById("toggleGuideBtn");
 const toggleLinesBtn = document.getElementById("toggleLinesBtn");
 const guideSizeRange = document.getElementById("guideSizeRange");
-const arabicTextInput = document.getElementById("arabicTextInput");
-const addTextBtn = document.getElementById("addTextBtn");
-const harakatRow = document.getElementById("harakatRow");
 const letterForms = document.getElementById("letterForms");
 const letterHint = document.getElementById("letterHint");
 const wordButtons = document.getElementById("wordButtons");
+
+const arabicTextInput = document.getElementById("arabicTextInput");
+const addTextBtn = document.getElementById("addTextBtn");
+const harakatRow = document.getElementById("harakatRow");
 
 const HARAKAT = ["َ", "ِ", "ُ", "ّ", "ْ", "ً", "ٍ", "ٌ", "ٰ", "ـ"];
 
@@ -57,12 +66,15 @@ const LETTER_DATA = {
 const state = {
   tool: "pen",
   color: "#1d4ed8",
-  size: 8,
-  smoothing: 0.65,
+  size: 9,
+  smoothing: 0.72,
+  beautifyEnabled: true,
+  beautifyStrength: 0.85,
   guideSize: 280,
   guideVisible: true,
   linesVisible: true,
   selectedLetter: "ا",
+  panelOpen: window.innerWidth > 1120,
   actions: [],
   redoStack: [],
   currentStroke: null,
@@ -71,15 +83,37 @@ const state = {
   pixelRatio: 1,
   canvasWidth: 1,
   canvasHeight: 1,
-  nextTextY: 120
+  nextTextY: 105
 };
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 function midpoint(a, b) {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  return { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
+}
+
+function normalizeAngle(radians) {
+  let output = radians;
+  while (output > Math.PI) {
+    output -= Math.PI * 2;
+  }
+  while (output < -Math.PI) {
+    output += Math.PI * 2;
+  }
+  return output;
+}
+
+function getWritingGuides() {
+  const upper = state.canvasHeight * 0.44;
+  const baseline = state.canvasHeight * 0.64;
+  const descender = state.canvasHeight * 0.8;
+  return { upper, baseline, descender };
 }
 
 function getPoint(event) {
@@ -91,12 +125,12 @@ function getPoint(event) {
   };
 }
 
-function smoothPoint(rawPoint, previousPoint, smoothStrength) {
+function stabilizePoint(rawPoint, previousPoint, smoothStrength) {
   if (!previousPoint) {
     return { ...rawPoint };
   }
 
-  const alpha = 0.62 - smoothStrength * 0.45;
+  const alpha = 0.58 - smoothStrength * 0.38;
   return {
     x: previousPoint.x + (rawPoint.x - previousPoint.x) * alpha,
     y: previousPoint.y + (rawPoint.y - previousPoint.y) * alpha,
@@ -105,17 +139,17 @@ function smoothPoint(rawPoint, previousPoint, smoothStrength) {
 }
 
 function computeWidth(point, previousPoint, baseSize, smoothStrength, isEraser) {
-  const rawBase = isEraser ? baseSize * 1.65 : baseSize;
+  const coreSize = isEraser ? baseSize * 1.65 : baseSize;
   if (!previousPoint) {
-    return rawBase;
+    return coreSize;
   }
 
-  const dt = Math.max(point.t - previousPoint.t, 8);
+  const dt = Math.max(point.t - previousPoint.t, 7);
   const distance = Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
   const speed = distance / dt;
-  const speedFactor = clamp(1.35 - speed * 3.1, 0.42, 1.6);
-  const targetWidth = rawBase * speedFactor;
-  return previousPoint.w + (targetWidth - previousPoint.w) * (0.2 + smoothStrength * 0.25);
+  const speedFactor = clamp(1.32 - speed * 2.9, 0.45, 1.55);
+  const target = coreSize * speedFactor;
+  return previousPoint.w + (target - previousPoint.w) * (0.22 + smoothStrength * 0.28);
 }
 
 function simplifyByDistance(points, threshold) {
@@ -127,11 +161,11 @@ function simplifyByDistance(points, threshold) {
   let last = points[0];
 
   for (let i = 1; i < points.length - 1; i += 1) {
-    const candidate = points[i];
-    const dist = Math.hypot(candidate.x - last.x, candidate.y - last.y);
-    if (dist >= threshold) {
-      simplified.push(candidate);
-      last = candidate;
+    const point = points[i];
+    const distance = Math.hypot(point.x - last.x, point.y - last.y);
+    if (distance >= threshold) {
+      simplified.push(point);
+      last = point;
     }
   }
 
@@ -145,17 +179,16 @@ function smoothPass(points, strength) {
   }
 
   const next = [points[0]];
-
   for (let i = 1; i < points.length - 1; i += 1) {
     const prev = points[i - 1];
-    const cur = points[i];
+    const current = points[i];
     const after = points[i + 1];
 
     next.push({
-      x: cur.x * (1 - strength) + ((prev.x + after.x) * 0.5) * strength,
-      y: cur.y * (1 - strength) + ((prev.y + after.y) * 0.5) * strength,
-      w: cur.w * (1 - strength * 0.8) + ((prev.w + after.w) * 0.5) * strength * 0.8,
-      t: cur.t
+      x: current.x * (1 - strength) + ((prev.x + after.x) * 0.5) * strength,
+      y: current.y * (1 - strength) + ((prev.y + after.y) * 0.5) * strength,
+      w: current.w * (1 - strength * 0.72) + ((prev.w + after.w) * 0.5) * strength * 0.72,
+      t: current.t
     });
   }
 
@@ -186,10 +219,12 @@ function resamplePoints(points, spacing) {
     let cursor = spacing - accumulated;
     while (cursor <= segment) {
       const t = cursor / segment;
-      const x = start.x + dx * t;
-      const y = start.y + dy * t;
-      const w = start.w + dw * t;
-      sampled.push({ x, y, w, t: end.t });
+      sampled.push({
+        x: start.x + dx * t,
+        y: start.y + dy * t,
+        w: start.w + dw * t,
+        t: end.t
+      });
       cursor += spacing;
     }
 
@@ -198,7 +233,7 @@ function resamplePoints(points, spacing) {
 
   const lastOriginal = points[points.length - 1];
   const lastSampled = sampled[sampled.length - 1];
-  if (Math.hypot(lastSampled.x - lastOriginal.x, lastSampled.y - lastOriginal.y) > 0.4) {
+  if (Math.hypot(lastSampled.x - lastOriginal.x, lastSampled.y - lastOriginal.y) > 0.3) {
     sampled.push(lastOriginal);
   }
 
@@ -223,60 +258,250 @@ function catmullRom(points, segmentsPerCurve) {
       const t2 = t * t;
       const t3 = t2 * t;
 
-      const x = 0.5 * (
-        (2 * p1.x) +
-        (-p0.x + p2.x) * t +
-        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
-      );
-
-      const y = 0.5 * (
-        (2 * p1.y) +
-        (-p0.y + p2.y) * t +
-        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
-      );
-
-      const w = 0.5 * (
-        (2 * p1.w) +
-        (-p0.w + p2.w) * t +
-        (2 * p0.w - 5 * p1.w + 4 * p2.w - p3.w) * t2 +
-        (-p0.w + 3 * p1.w - 3 * p2.w + p3.w) * t3
-      );
-
-      output.push({ x, y, w, t: p2.t });
+      output.push({
+        x: 0.5 * (
+          (2 * p1.x) +
+          (-p0.x + p2.x) * t +
+          (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+          (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+        ),
+        y: 0.5 * (
+          (2 * p1.y) +
+          (-p0.y + p2.y) * t +
+          (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+          (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+        ),
+        w: 0.5 * (
+          (2 * p1.w) +
+          (-p0.w + p2.w) * t +
+          (2 * p0.w - 5 * p1.w + 4 * p2.w - p3.w) * t2 +
+          (-p0.w + 3 * p1.w - 3 * p2.w + p3.w) * t3
+        ),
+        t: p2.t
+      });
     }
   }
 
   return output;
 }
 
-function beautifyStroke(points, strength) {
-  if (points.length < 4) {
+function coarseBeautify(points, strength) {
+  if (points.length < 3) {
     return points.slice();
   }
 
-  let result = simplifyByDistance(points, 0.5 + strength * 1.4);
-  result = resamplePoints(result, 1.4 + (1 - strength) * 1.8);
+  let result = simplifyByDistance(points, 0.45 + strength * 1.1);
+  result = resamplePoints(result, 1.25 + (1 - strength) * 1.35);
 
   const passes = 1 + Math.round(strength * 2);
   for (let i = 0; i < passes; i += 1) {
-    result = smoothPass(result, 0.33 + strength * 0.24);
+    result = smoothPass(result, 0.28 + strength * 0.2);
   }
 
-  result = catmullRom(result, 4 + Math.round(strength * 5));
-
-  for (let i = 0; i < result.length; i += 1) {
-    const prev = result[Math.max(0, i - 1)];
-    const next = result[Math.min(result.length - 1, i + 1)];
-    result[i].w = clamp((prev.w + result[i].w + next.w) / 3, 1.2, 72);
-  }
-
+  result = catmullRom(result, 3 + Math.round(strength * 3));
   return result;
 }
 
+function snapPointsToArabicGuides(points, strength) {
+  const { upper, baseline, descender } = getWritingGuides();
+  const snapZone = 14 + state.size * 1.7;
+  const output = [];
+
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    let y = p.y;
+
+    const nearBaseline = Math.abs(y - baseline) <= snapZone;
+    const nearUpper = Math.abs(y - upper) <= snapZone * 0.85;
+    const nearDescender = Math.abs(y - descender) <= snapZone * 0.9;
+
+    if (nearBaseline) {
+      y = lerp(y, baseline, 0.16 + strength * 0.42);
+    }
+
+    if (nearUpper) {
+      y = lerp(y, upper, 0.08 + strength * 0.26);
+    }
+
+    if (nearDescender) {
+      y = lerp(y, descender, 0.08 + strength * 0.24);
+    }
+
+    output.push({ ...p, y });
+  }
+
+  return output;
+}
+
+function snapStrokeAngles(points, strength) {
+  if (points.length < 3) {
+    return points.slice();
+  }
+
+  const allowedAngles = [0, 12, -12, 24, -24, 37, -37, 52, -52, 90, -90]
+    .map((deg) => (deg * Math.PI) / 180);
+
+  const output = [points[0]];
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = output[output.length - 1];
+    const target = points[i];
+    const dx = target.x - prev.x;
+    const dy = target.y - prev.y;
+    const segment = Math.hypot(dx, dy);
+
+    if (segment < 0.1) {
+      continue;
+    }
+
+    const rawAngle = Math.atan2(dy, dx);
+    let snappedAngle = rawAngle;
+    let smallest = Infinity;
+
+    for (const angle of allowedAngles) {
+      const diff = Math.abs(normalizeAngle(rawAngle - angle));
+      if (diff < smallest) {
+        smallest = diff;
+        snappedAngle = angle;
+      }
+    }
+
+    const blend = 0.12 + strength * 0.5;
+    const finalAngle = rawAngle + normalizeAngle(snappedAngle - rawAngle) * blend;
+
+    output.push({
+      ...target,
+      x: prev.x + Math.cos(finalAngle) * segment,
+      y: prev.y + Math.sin(finalAngle) * segment
+    });
+  }
+
+  if (output.length === 1) {
+    output.push(points[points.length - 1]);
+  }
+
+  return output;
+}
+
+function applyCalligraphyWidths(points, strength) {
+  if (points.length <= 1) {
+    return points.slice();
+  }
+
+  const nibAngle = (-34 * Math.PI) / 180;
+  const output = [];
+
+  for (let i = 0; i < points.length; i += 1) {
+    const prev = points[Math.max(0, i - 1)];
+    const next = points[Math.min(points.length - 1, i + 1)];
+    const angle = Math.atan2(next.y - prev.y, next.x - prev.x);
+    const nibFactor = 0.7 + Math.abs(Math.sin(angle - nibAngle)) * (0.48 + strength * 0.24);
+    const targetWidth = clamp(points[i].w * nibFactor, 1.2, 74);
+
+    output.push({
+      ...points[i],
+      w: lerp(points[i].w, targetWidth, 0.35 + strength * 0.45)
+    });
+  }
+
+  return output;
+}
+
+function strokeLength(points) {
+  if (points.length <= 1) {
+    return 0;
+  }
+
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return total;
+}
+
+function getBounds(points) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  return {
+    minX,
+    maxX,
+    minY,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) * 0.5,
+    centerY: (minY + maxY) * 0.5
+  };
+}
+
+function isDotLikeStroke(points) {
+  if (points.length <= 1) {
+    return true;
+  }
+
+  const length = strokeLength(points);
+  const bounds = getBounds(points);
+  const maxSpan = Math.max(bounds.width, bounds.height);
+
+  return length < state.size * 2.6 && maxSpan < state.size * 2.3;
+}
+
+function buildSmartArabicStroke(points, preview) {
+  if (points.length < 2) {
+    return points.slice();
+  }
+
+  const smartStrength = state.beautifyStrength * (preview ? 0.76 : 1);
+
+  let output = coarseBeautify(points, 0.45 + state.smoothing * 0.55);
+  output = snapPointsToArabicGuides(output, smartStrength);
+  output = snapStrokeAngles(output, smartStrength);
+
+  output = smoothPass(output, 0.21 + smartStrength * 0.2);
+  output = smoothPass(output, 0.12 + smartStrength * 0.12);
+  output = catmullRom(output, 4 + Math.round(smartStrength * 3));
+  output = applyCalligraphyWidths(output, smartStrength);
+
+  return output;
+}
+
+function finalizeStrokePath(rawPoints, tool, preview) {
+  if (!rawPoints.length) {
+    return [];
+  }
+
+  if (tool === "eraser") {
+    return coarseBeautify(rawPoints, state.smoothing * 0.8);
+  }
+
+  if (isDotLikeStroke(rawPoints)) {
+    const bounds = getBounds(rawPoints);
+    return [{
+      x: bounds.centerX,
+      y: bounds.centerY,
+      w: state.size * (1 + state.beautifyStrength * 0.42),
+      t: rawPoints[rawPoints.length - 1].t
+    }];
+  }
+
+  if (!state.beautifyEnabled) {
+    return coarseBeautify(rawPoints, state.smoothing);
+  }
+
+  return buildSmartArabicStroke(rawPoints, preview);
+}
+
 function drawStroke(points, color, composite) {
-  if (!points || points.length === 0) {
+  if (!points || !points.length) {
     return;
   }
 
@@ -289,23 +514,22 @@ function drawStroke(points, color, composite) {
 
   if (points.length === 1) {
     ctx.beginPath();
-    ctx.arc(points[0].x, points[0].y, points[0].w / 2, 0, Math.PI * 2);
+    ctx.arc(points[0].x, points[0].y, points[0].w * 0.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     return;
   }
 
   for (let i = 1; i < points.length; i += 1) {
-    const prev = points[i - 1];
+    const previous = points[i - 1];
     const current = points[i];
-
-    const start = i === 1 ? prev : midpoint(points[i - 2], prev);
-    const end = midpoint(prev, current);
+    const start = i === 1 ? previous : midpoint(points[i - 2], previous);
+    const end = midpoint(previous, current);
 
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.quadraticCurveTo(prev.x, prev.y, end.x, end.y);
-    ctx.lineWidth = (prev.w + current.w) * 0.5;
+    ctx.quadraticCurveTo(previous.x, previous.y, end.x, end.y);
+    ctx.lineWidth = (previous.w + current.w) * 0.5;
     ctx.stroke();
   }
 
@@ -327,44 +551,42 @@ function drawTextAction(action) {
   ctx.direction = "rtl";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `${action.size}px "Aref Ruqaa Ink", serif`;
+  ctx.font = `${action.size}px "Amiri", serif`;
   ctx.fillText(action.text, action.x, action.y);
   ctx.restore();
 }
 
 function drawWritingLines() {
-  const upper = state.canvasHeight * 0.48;
-  const baseline = state.canvasHeight * 0.68;
-  const descender = state.canvasHeight * 0.84;
+  const { upper, baseline, descender } = getWritingGuides();
 
   ctx.save();
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 1.3;
 
-  ctx.strokeStyle = "rgba(30, 64, 175, 0.25)";
+  ctx.strokeStyle = "rgba(59, 130, 246, 0.26)";
   ctx.beginPath();
   ctx.moveTo(0, upper);
   ctx.lineTo(state.canvasWidth, upper);
   ctx.stroke();
 
-  ctx.strokeStyle = "rgba(5, 150, 105, 0.33)";
+  ctx.strokeStyle = "rgba(5, 150, 105, 0.34)";
   ctx.beginPath();
   ctx.moveTo(0, baseline);
   ctx.lineTo(state.canvasWidth, baseline);
   ctx.stroke();
 
-  ctx.strokeStyle = "rgba(220, 38, 38, 0.22)";
+  ctx.strokeStyle = "rgba(220, 38, 38, 0.24)";
   ctx.beginPath();
   ctx.moveTo(0, descender);
   ctx.lineTo(state.canvasWidth, descender);
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
-  ctx.font = '13px "Cairo", sans-serif';
+  ctx.fillStyle = "rgba(15, 23, 42, 0.46)";
+  ctx.font = '12px "Cairo", sans-serif';
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText("سطر علوي", 8, upper - 8);
-  ctx.fillText("السطر الأساسي", 8, baseline - 8);
-  ctx.fillText("سطر النزول", 8, descender - 8);
+  ctx.fillText("سطر علوي", 10, upper - 9);
+  ctx.fillText("السطر الأساسي", 10, baseline - 9);
+  ctx.fillText("سطر النزول", 10, descender - 9);
 
   ctx.restore();
 }
@@ -376,15 +598,15 @@ function drawGuideLetter() {
   ctx.textBaseline = "middle";
   ctx.font = `700 ${state.guideSize}px "Aref Ruqaa Ink", serif`;
 
-  ctx.globalAlpha = 0.12;
+  ctx.globalAlpha = 0.1;
   ctx.fillStyle = "#1e3a8a";
-  ctx.fillText(state.selectedLetter, state.canvasWidth / 2, state.canvasHeight / 2);
+  ctx.fillText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.5);
 
-  ctx.globalAlpha = 0.28;
-  ctx.strokeStyle = "#1e40af";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 8]);
-  ctx.strokeText(state.selectedLetter, state.canvasWidth / 2, state.canvasHeight / 2);
+  ctx.globalAlpha = 0.22;
+  ctx.strokeStyle = "#1d4ed8";
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([7, 6]);
+  ctx.strokeText(state.selectedLetter, state.canvasWidth * 0.5, state.canvasHeight * 0.5);
 
   ctx.restore();
 }
@@ -396,6 +618,14 @@ function redraw() {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, state.canvasWidth, state.canvasHeight);
   ctx.restore();
+
+  if (state.linesVisible) {
+    drawWritingLines();
+  }
+
+  if (state.guideVisible) {
+    drawGuideLetter();
+  }
 
   for (const action of state.actions) {
     if (action.type === "stroke") {
@@ -411,14 +641,6 @@ function redraw() {
       state.currentStroke.color,
       state.currentStroke.tool === "eraser" ? "destination-out" : "source-over"
     );
-  }
-
-  if (state.linesVisible) {
-    drawWritingLines();
-  }
-
-  if (state.guideVisible) {
-    drawGuideLetter();
   }
 }
 
@@ -469,13 +691,27 @@ function clearBoard() {
   state.actions = [];
   state.redoStack = [];
   state.currentStroke = null;
+  state.nextTextY = 105;
   redraw();
+}
+
+function updateCurrentStroke(preview) {
+  if (!state.currentStroke) {
+    return;
+  }
+
+  state.currentStroke.points = finalizeStrokePath(
+    state.currentStroke.rawPoints,
+    state.currentStroke.tool,
+    preview
+  );
 }
 
 function startStroke(event) {
   if (event.pointerType === "mouse" && event.button !== 0) {
     return;
   }
+
   event.preventDefault();
   const point = getPoint(event);
   const baseWidth = state.tool === "eraser" ? state.size * 1.65 : state.size;
@@ -483,8 +719,9 @@ function startStroke(event) {
   state.currentStroke = {
     type: "stroke",
     tool: state.tool,
-    color: state.tool === "eraser" ? "#000000" : state.color,
+    color: state.tool === "eraser" ? "#111111" : state.color,
     composite: state.tool === "eraser" ? "destination-out" : "source-over",
+    rawPoints: [{ ...point, w: baseWidth }],
     points: [{ ...point, w: baseWidth }]
   };
 
@@ -499,14 +736,15 @@ function moveStroke(event) {
     return;
   }
 
-  const rawPoint = getPoint(event);
-  const points = state.currentStroke.points;
-  const lastPoint = points[points.length - 1];
+  const raw = getPoint(event);
+  const rawPoints = state.currentStroke.rawPoints;
+  const lastPoint = rawPoints[rawPoints.length - 1];
 
-  const smoothed = smoothPoint(rawPoint, lastPoint, state.smoothing);
-  const computedWidth = computeWidth(smoothed, lastPoint, state.size, state.smoothing, state.tool === "eraser");
+  const stabilized = stabilizePoint(raw, lastPoint, state.smoothing);
+  const width = computeWidth(stabilized, lastPoint, state.size, state.smoothing, state.tool === "eraser");
 
-  points.push({ ...smoothed, w: computedWidth });
+  rawPoints.push({ ...stabilized, w: width });
+  updateCurrentStroke(true);
   redraw();
 }
 
@@ -515,10 +753,15 @@ function endStroke(event) {
     return;
   }
 
-  const finalized = { ...state.currentStroke };
-  if (finalized.tool === "pen") {
-    finalized.points = beautifyStroke(finalized.points, state.smoothing);
-  }
+  updateCurrentStroke(false);
+
+  const finalized = {
+    type: "stroke",
+    tool: state.currentStroke.tool,
+    color: state.currentStroke.color,
+    composite: state.currentStroke.composite,
+    points: state.currentStroke.points
+  };
 
   state.actions.push(finalized);
   state.redoStack = [];
@@ -534,9 +777,9 @@ function addTextToBoard(text) {
     return;
   }
 
-  const nextY = state.nextTextY;
-  state.nextTextY += 56;
-  if (state.nextTextY > state.canvasHeight - 80) {
+  const y = state.nextTextY;
+  state.nextTextY += 58;
+  if (state.nextTextY > state.canvasHeight - 70) {
     state.nextTextY = 110;
   }
 
@@ -544,29 +787,41 @@ function addTextToBoard(text) {
     type: "text",
     text: trimmed,
     x: state.canvasWidth * 0.5,
-    y: nextY,
-    size: clamp(44 + state.size * 1.7, 40, 88),
+    y,
+    size: clamp(42 + state.size * 1.4, 38, 82),
     color: state.color
   });
 }
 
 function saveImage() {
   const link = document.createElement("a");
-  link.download = `arabic-board-${Date.now()}.png`;
+  link.download = `smart-arabic-board-${Date.now()}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
 
-function buildLetterOptions() {
-  const letters = Object.keys(LETTER_DATA);
+function updatePanelState() {
+  workspace.classList.toggle("panel-collapsed", !state.panelOpen);
+  togglePanelBtn.textContent = state.panelOpen ? "إخفاء لوحة الشرح" : "إظهار لوحة الشرح";
+}
 
-  for (const letter of letters) {
+function updateBeautifyUI() {
+  beautifyModeBtn.classList.toggle("active", state.beautifyEnabled);
+  beautifyBadge.classList.toggle("on", state.beautifyEnabled);
+  beautifyBadge.classList.toggle("off", !state.beautifyEnabled);
+  beautifyBadge.textContent = state.beautifyEnabled
+    ? `تحسين الخط: مفعل (${Math.round(state.beautifyStrength * 100)}%)`
+    : "تحسين الخط: متوقف";
+}
+
+function buildLetterOptions() {
+  letterSelect.innerHTML = "";
+  for (const letter of Object.keys(LETTER_DATA)) {
     const option = document.createElement("option");
     option.value = letter;
     option.textContent = letter;
     letterSelect.appendChild(option);
   }
-
   letterSelect.value = state.selectedLetter;
 }
 
@@ -591,9 +846,8 @@ function updateLetterCard() {
 function insertAtCursor(input, value) {
   const start = input.selectionStart ?? input.value.length;
   const end = input.selectionEnd ?? input.value.length;
-  const before = input.value.slice(0, start);
-  const after = input.value.slice(end);
-  input.value = `${before}${value}${after}`;
+
+  input.value = `${input.value.slice(0, start)}${value}${input.value.slice(end)}`;
   const cursor = start + value.length;
   input.setSelectionRange(cursor, cursor);
   input.focus();
@@ -632,6 +886,21 @@ function bindEvents() {
 
   smoothRange.addEventListener("input", (event) => {
     state.smoothing = Number(event.target.value) / 100;
+  });
+
+  beautifyModeBtn.addEventListener("click", () => {
+    state.beautifyEnabled = !state.beautifyEnabled;
+    updateBeautifyUI();
+  });
+
+  beautifyRange.addEventListener("input", (event) => {
+    state.beautifyStrength = Number(event.target.value) / 100;
+    updateBeautifyUI();
+  });
+
+  togglePanelBtn.addEventListener("click", () => {
+    state.panelOpen = !state.panelOpen;
+    updatePanelState();
   });
 
   letterSelect.addEventListener("change", (event) => {
@@ -678,7 +947,13 @@ function bindEvents() {
     }
   });
 
-  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("resize", () => {
+    if (window.innerWidth <= 1120 && state.panelOpen && !teacherPanel.matches(":hover")) {
+      state.panelOpen = false;
+      updatePanelState();
+    }
+    resizeCanvas();
+  });
 }
 
 function init() {
@@ -686,8 +961,11 @@ function init() {
   buildHarakatButtons();
   updateLetterCard();
   bindEvents();
-  toggleGuideBtn.textContent = state.guideVisible ? "إخفاء التتبع" : "إظهار التتبع";
-  toggleLinesBtn.textContent = state.linesVisible ? "إخفاء سطور الكتابة" : "إظهار سطور الكتابة";
+  setTool("pen");
+  updatePanelState();
+  updateBeautifyUI();
+  toggleGuideBtn.textContent = "إخفاء التتبع";
+  toggleLinesBtn.textContent = "إخفاء سطور الكتابة";
   resizeCanvas();
 }
 

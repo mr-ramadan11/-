@@ -3,85 +3,100 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>سبورة اللغة العربية التفاعلية</title>
+  <title>السبورة العربية الذكية</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div>
-        <p class="kicker">Arabic Classroom Board</p>
-        <h1>سبورة تفاعلية لتعليم اللغة العربية</h1>
+  <div class="board-app">
+    <header class="topbar">
+      <div class="brand">
+        <p class="tiny-title">Arabic Smart Board</p>
+        <h1>سبورة اللغة العربية الذكية</h1>
       </div>
-      <p class="subtitle">اكتب بالقلم وسيتم تنعيم وتحسين الخط تلقائيًا، مع أدوات شرح الحروف والحركات.</p>
+      <div class="top-actions">
+        <span class="status-badge on" id="beautifyBadge">تحسين الخط: مفعل</span>
+        <button class="ghost-btn" id="togglePanelBtn">لوحة الشرح</button>
+      </div>
     </header>
 
-    <section class="control-panel">
-      <div class="tool-group">
-        <button class="tool-btn active" data-tool="pen" id="penBtn">قلم</button>
-        <button class="tool-btn" data-tool="eraser" id="eraserBtn">ممحاة</button>
-        <button class="tool-btn" id="undoBtn">تراجع</button>
-        <button class="tool-btn" id="redoBtn">إعادة</button>
-        <button class="tool-btn warning" id="clearBtn">مسح الكل</button>
-        <button class="tool-btn" id="saveBtn">حفظ صورة</button>
-      </div>
+    <div class="workspace" id="workspace">
+      <aside class="teacher-panel" id="teacherPanel">
+        <section class="panel-card">
+          <h2>تدريب الحروف</h2>
+          <label class="field">
+            الحرف المستهدف
+            <select id="letterSelect"></select>
+          </label>
+          <p id="letterForms" class="letter-forms">ا بـ ـبـ ـب</p>
+          <p id="letterHint" class="letter-hint">مثال: باب</p>
+          <label class="field">
+            حجم الحرف الدليل
+            <input type="range" id="guideSizeRange" min="120" max="520" value="280" />
+          </label>
+          <div class="inline-btns">
+            <button class="pill-btn" id="toggleGuideBtn">إخفاء التتبع</button>
+            <button class="pill-btn" id="toggleLinesBtn">إخفاء سطور الكتابة</button>
+          </div>
+        </section>
 
-      <div class="tool-group sliders">
-        <label>
-          لون القلم
-          <input type="color" id="colorPicker" value="#1d4ed8" />
-        </label>
-        <label>
-          سماكة
-          <input type="range" id="sizeRange" min="2" max="32" value="8" />
-        </label>
-        <label>
-          قوة التنعيم
-          <input type="range" id="smoothRange" min="0" max="100" value="65" />
-        </label>
-      </div>
+        <section class="panel-card">
+          <h2>بنك كلمات سريع</h2>
+          <div id="wordButtons" class="word-bank"></div>
+        </section>
+      </aside>
 
-      <div class="tool-group learning-tools">
-        <label>
-          اختر الحرف
-          <select id="letterSelect"></select>
-        </label>
-        <button class="tool-btn" id="toggleGuideBtn">إظهار التتبع</button>
-        <button class="tool-btn" id="toggleLinesBtn">إخفاء سطور الكتابة</button>
-        <label>
-          حجم الحرف الدليل
-          <input type="range" id="guideSizeRange" min="120" max="520" value="280" />
-        </label>
-      </div>
+      <main class="board-stage">
+        <section class="quick-toolbar">
+          <div class="tool-cluster">
+            <button class="tool-btn active" id="penBtn">قلم</button>
+            <button class="tool-btn" id="eraserBtn">ممحاة</button>
+            <button class="tool-btn" id="undoBtn">تراجع</button>
+            <button class="tool-btn" id="redoBtn">إعادة</button>
+            <button class="tool-btn danger" id="clearBtn">مسح</button>
+            <button class="tool-btn" id="saveBtn">حفظ</button>
+          </div>
 
-      <div class="tool-group text-tools">
-        <label class="text-input-wrap">
-          نص الشرح
-          <input type="text" id="arabicTextInput" placeholder="اكتب كلمة أو جملة عربية" />
-        </label>
-        <button class="tool-btn" id="addTextBtn">إضافة النص للسبورة</button>
-        <div class="harakat-row" id="harakatRow"></div>
-      </div>
-    </section>
+          <div class="tool-cluster controls">
+            <label>
+              اللون
+              <input type="color" id="colorPicker" value="#1d4ed8" />
+            </label>
+            <label>
+              السماكة
+              <input type="range" id="sizeRange" min="2" max="32" value="9" />
+            </label>
+            <label>
+              ثبات القلم
+              <input type="range" id="smoothRange" min="0" max="100" value="72" />
+            </label>
+          </div>
 
-    <section class="teaching-strip">
-      <div class="letter-card" id="letterCard">
-        <h2>بطاقة الحرف</h2>
-        <p id="letterForms">ا ب ـبـ ـب ب</p>
-        <p id="letterHint">مثال: باب</p>
-      </div>
-      <div class="word-bank">
-        <h2>كلمات تدريب</h2>
-        <div id="wordButtons"></div>
-      </div>
-    </section>
+          <div class="tool-cluster controls smart-cluster">
+            <button class="tool-btn active" id="beautifyModeBtn">تحسين عربي ذكي</button>
+            <label>
+              قوة التحسين
+              <input type="range" id="beautifyRange" min="0" max="100" value="85" />
+            </label>
+          </div>
+        </section>
 
-    <main class="board-wrap">
-      <canvas id="board" aria-label="سبورة تفاعلية"></canvas>
-    </main>
+        <section class="board-wrap">
+          <canvas id="board" aria-label="سبورة تفاعلية عربية"></canvas>
+        </section>
+
+        <section class="bottom-dock">
+          <label class="text-field">
+            نص واضح للطلاب
+            <input type="text" id="arabicTextInput" placeholder="اكتب هنا ثم أضف النص للسبورة" />
+          </label>
+          <button class="tool-btn" id="addTextBtn">إضافة النص</button>
+          <div class="harakat-row" id="harakatRow"></div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <script src="app.js"></script>
